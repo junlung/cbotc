@@ -3,3 +3,9 @@ services:
   main:
     build: .
     container_name: cbotc
+    networks:
+      - caddyshack
+
+networks:
+  caddyshack:
+    name: caddyshack
