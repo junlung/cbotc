@@ -3,7 +3,6 @@ import discord
 import aiohttp
 from io import BytesIO
 from discord import app_commands, Embed, Color
-from embeds import CardFinder
 from discord.ext import commands
 
 class Mtg(commands.Cog):
