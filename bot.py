@@ -1,6 +1,7 @@
 import discord
 import os
 import asyncio
+from modals.add_member_modal import AddMemberModal
 from discord.ext.commands import Context
 from discord.ext import commands
 from discord import app_commands
@@ -32,9 +33,14 @@ async def on_ready():
     print("Logged in as a bot {0.user}".format(bot))
     #await tree.sync(guild=discord.Object(id=1170197562947543060))
 
+@app_commands.context_menu(name="Add Discord Member")
+async def add_member(interaction: discord.Interaction, user: discord.User):
+    await interaction.response.send_modal(AddMemberModal(username=user.display_name, user_id=user.id))
+
 async def main():
     async with bot:
         await load_cogs()
+        bot.tree.add_command(add_member)
         bot.tree.copy_global_to(guild=discord.Object(id=1170197562947543060))
         bot.tree.copy_global_to(guild=discord.Object(id=732274969546981441))
         await bot.start(token)

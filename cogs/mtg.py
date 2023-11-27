@@ -1,27 +1,24 @@
 import requests
 import discord
-import aiohttp
+import os
 from io import BytesIO
 from discord import app_commands, Embed, Color
 from discord.ext import commands
+import json
 
 class Mtg(commands.Cog):
-  #############################
-  ##   INITIALIZATION
-  #############################
+  """ A Cog that allows users to fetch info related to Magic the Gathering """
   def __init__(self, bot):
     self.bot = bot
 
   async def cog_unload(self):
     self.bot.tree.remove_command(self.ctx_menu.name, type=self.ctx_menu.type)
 
-  #############################
-  ##   COMMANDS
-  #############################
   @app_commands.command(name='card')
   @app_commands.describe(name='The name of the card to search')
   async def card(self, interaction: discord.Interaction, name: str):
-    """ Search for a card on Scryfall """
+    """ Searches for a card on Scryfall and sends an image of it to the channel. """
+
     print("looking for " + name)
     response = requests.get(name_to_url(name))
 
@@ -33,8 +30,31 @@ class Mtg(commands.Cog):
       print("not found")
       await interaction.response.send("Card not found!")
 
+  @app_commands.command(name='generate_deck')
+  @app_commands.describe(
+    deck_url='The URL of the deck',
+    cardback_url='The URL of the cardback',
+    name='The name of the Deck')
+  async def generate_deck(self, interaction: discord.Interaction, deck_url: str, cardback_url: str, name: str):
+    """ Generates a deck TTS object """
+    url = "https://tts-magic-booster.fly.dev/deck?autofix=true&back=" + cardback_url
+    params = {
+      'deck': deck_url
+    }
+    filename = name + '.json'
+    response = requests.post(url, data=params)
+    response.json()
+    print(json.loads(response.json()['downloadOutput']))
+    with open(filename, 'w') as fp:
+      json.dump(json.loads(response.json()['downloadOutput']), fp)
+    
+    file=discord.File(filename)
+    await interaction.response.send_message(file=file, content='Test')
+    os.remove(filename)
+
   @commands.Cog.listener()
   async def on_message(self, message):
+    """ Listens for all messages in the server and parses it for card names in [[brackets]]. """
     card_embeds = []
     cards = get_cards_from_message(message.content)
     for card in cards:
@@ -43,9 +63,7 @@ class Mtg(commands.Cog):
       card_embeds.append(embed_from_card(card))
     await message.channel.send(embeds=card_embeds)
 
-#############################
-##   HELPER METHODS
-#############################
+
 def get_cards_from_message(content: str):
   """
   checks a message for card names and returns card data
