@@ -1,0 +1,11 @@
+{
+  "versions": [
+    {
+      "number": "1.1.0",
+      "changes": [
+        "Added support for cards with multiple faces",
+        "Added mana costs to card descriptions"
+      ]
+    }
+  ]
+}

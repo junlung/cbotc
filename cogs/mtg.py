@@ -58,8 +58,6 @@ class Mtg(commands.Cog):
     card_embeds = []
     cards = get_cards_from_message(message.content)
     for card in cards:
-      print(card)
-      print(embed_from_card(card))
       card_embeds.append(embed_from_card(card))
     await message.channel.send(embeds=card_embeds)
 
@@ -73,12 +71,13 @@ def get_cards_from_message(content: str):
   """ 
   cards = []
   names = get_card_names_from_text(content)
-  print(names)
   for name in names:
     url = get_url_from_name(name)
     print(url)
-    card = get_card_data(url)
-    print(card)
+    try:
+      card = get_card_data(url)
+    except Exception as e:
+      print(e)
     if card != None: cards.append(card)
   return cards
 
@@ -123,21 +122,68 @@ def get_card_data(url: str):
     "id":         data['id'],
     "url":        data['scryfall_uri'],
     "name":       data['name'],
-    "image":      data['image_uris']['png'],
-    "mana_cost":  data['mana_cost'],
     "cmc":        data['cmc'],
     "type":       data['type_line'],
-    "text":       data['oracle_text'],
-    "colors":     data['colors'],
     "rarity":     data['rarity']
   }
 
-  if 'power' in data: card.update(
-    {
-      "power":      data['power'],
-      "toughness":  data['toughness']
+  if 'card_faces' in data:
+    front = data['card_faces'][0]
+    front_face = {
+      "name":        front['name'],
+      "mana_cost":   front['mana_cost'],
+      "type":        front['type_line'],
+      "oracle_text": front['oracle_text'],
+      "colors":      front['colors'],
+      "image":       front['image_uris']['png']
     }
-  )
+
+    if 'power' in front: front_face.update(
+      {
+        "power":      front['power'],
+        "toughness":  front['toughness']
+      }
+    )
+      
+    back = data['card_faces'][1]
+    back_face = {
+      "name":        back['name'],
+      "mana_cost":   back['mana_cost'],
+      "type":        back['type_line'],
+      "oracle_text": back['oracle_text'],
+      "colors":      back['colors'],
+      "image":       back['image_uris']['png']
+    }
+
+    if 'power' in back: back_face.update(
+      {
+        "power":      back['power'],
+        "toughness":  back['toughness']
+      }
+    )
+
+    card.update(
+      {
+        "colors": data['color_identity'],
+        "two_sided": True,
+        "faces": [front_face, back_face]
+      }
+    )
+  else:
+    card.update({
+      "image":      data['image_uris']['png'],
+      "mana_cost":  data['mana_cost'],
+      "text":       data['oracle_text'],
+      "colors":     data['colors'],
+      "two_sided":  False
+    })
+
+    if 'power' in data: card.update(
+      {
+        "power":      data['power'],
+        "toughness":  data['toughness']
+      }
+    )
     
   return card
 
@@ -156,24 +202,48 @@ def embed_from_card(card: dict):
     "G": 0x00733d,
   }
 
-  description = f'{card["type"]}\n{card["text"]}'
-  if 'power' in card: description += f'\n{card["power"]}/{card["toughness"]}'
+  if card['two_sided'] == False:
+    description = f'Mana Cost: {card["mana_cost"]}\n{card["type"]}\n{card["text"]}'
+    if 'power' in card: description += f'\n{card["power"]}/{card["toughness"]}'
+    color = 0x969696
+    if len(card['colors']) > 0: color = colors[card['colors'][0]]
 
-  print(description)
-  color = 0x969696
-  if len(card['colors']) > 0: color = colors[card['colors'][0]]
+    params = {
+      "color": color,
+      "title": card['name'],
+      "url": card['url'],
+      "description": description
+    }
 
-  params = {
-    "color": color,
-    "title": card['name'],
-    "url": card['url'],
-    "description": description
-  }
+    embed = Embed(**params)
+    embed.set_thumbnail(url=card['image'])
+    return embed
+  else:
+    try:
+      front = card["faces"][0]
+      back = card["faces"][1]
 
-  embed = Embed(**params)
-  embed.set_thumbnail(url=card['image'])
-  print(embed)
-  return embed
+      description = f'{front["name"]} | {front["mana_cost"]}\n{front["type"]}\n{front["oracle_text"]}'
+      if 'power' in front: description += f'\n{front["power"]}/{front["toughness"]}'
+      description += f'\n\n{back["name"]} | {back["mana_cost"]}\n{back["type"]}\n{back["oracle_text"]}'
+      if 'power' in back: description += f'\n{back["power"]}/{back["toughness"]}'
+
+      color = 0x969696
+      if len(card['colors']) > 0: color = colors[card['colors'][0]]
+
+      params = {
+        "color": color,
+        "title": card['name'],
+        "url": card['url'],
+        "description": description
+      }
+
+      embed = Embed(**params)
+      embed.set_thumbnail(url=front['image'])
+      return embed
+    except Exception as e:
+      print(e)
+
 
 def name_to_url(text):
   search = "https://api.scryfall.com/cards/named?fuzzy="
